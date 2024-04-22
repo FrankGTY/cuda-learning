@@ -8,6 +8,10 @@ void host_add(int *a, int *b, int *c) {
 		c[idx] = a[idx] + b[idx];
 }
 
+__global__ void device_add(int *a, int *b, int *c) {
+    c[threadIdx.x] = a[threadIdx.x] + b[threadIdx.x];
+}
+
 //basically just fills the array with index.
 void fill_array(int *data) {
 	for(int idx=0;idx<N;idx++)
@@ -20,6 +24,7 @@ void print_output(int *a, int *b, int*c) {
 }
 int main(void) {
 	int *a, *b, *c;
+    int *d_a, *d_b, *d_c;
 	int size = N * sizeof(int);
 
 	// Alloc space for host copies of a, b, c and setup input values
@@ -27,12 +32,24 @@ int main(void) {
 	b = (int *)malloc(size); fill_array(b);
 	c = (int *)malloc(size);
 
-	host_add(a,b,c);
+	// Alloc space for device copies of a, b, c
+    cudaMalloc((void **)&d_a, size);
+    cudaMalloc((void **)&d_b, size);
+    cudaMalloc((void **)&d_c, size);
 
-	print_output(a,b,c);
+    // Copy inputs to device
+    cudaMemcpy(d_a, a, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_b, b, size, cudaMemcpyHostToDevice);
+
+    device_add<<<1,N>>>(d_a, d_b, d_c);
+
+    // Copy result back to host
+    cudaMemcpy(c, d_c, size, cudaMemcpyDeviceToHost);
+
+    print_output(a,b,c);
 
 	free(a); free(b); free(c);
-
+    cudaFree(d_a); cudaFree(d_b); cudaFree(d_c);
 
 	return 0;
 }
